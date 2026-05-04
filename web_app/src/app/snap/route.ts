@@ -23,7 +23,7 @@ function snapPayload(baseUrl: string) {
         page: {
           type: "stack",
           props: {},
-          children: ["title", "body", "open"],
+          children: ["title", "body", "link"],
         },
         title: {
           type: "text",
@@ -31,14 +31,14 @@ function snapPayload(baseUrl: string) {
         },
         body: {
           type: "text",
-          props: { content: "Open the mini app to place your prediction.", size: "sm" },
+          props: { content: "Snap is live. Tap below to open the app.", size: "sm" },
         },
-        open: {
+        link: {
           type: "button",
-          props: { label: "Open mini app", variant: "primary" },
+          props: { label: "Open app" },
           on: {
             press: {
-              action: "open_mini_app",
+              action: "open_url",
               params: { target: `${baseUrl}/` },
             },
           },
