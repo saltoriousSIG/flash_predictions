@@ -2,19 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  createWalletClient,
-  custom,
   encodeFunctionData,
   erc20Abi,
   keccak256,
   parseUnits,
   stringToHex,
 } from "viem";
-import { base } from "viem/chains";
-
-type Eip1193Provider = {
-  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
-};
+import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { useFrameSDK } from "../../providers/FrameSDKProvider";
 
 type Option = {
   index: number;
@@ -48,18 +43,6 @@ const predictionCoreAbi = [
   },
 ] as const;
 
-function hasEthereumProvider(value: unknown): value is { request: (...args: unknown[]) => Promise<unknown> } {
-  return !!value && typeof value === "object" && "request" in value;
-}
-
-function getInjectedProvider(): Eip1193Provider | null {
-  const maybeProvider = (window as Window & { ethereum?: unknown }).ethereum;
-  if (hasEthereumProvider(maybeProvider)) {
-    return maybeProvider as Eip1193Provider;
-  }
-  return null;
-}
-
 function makePredictionId(address: string, marketId: number, optionIndex: number) {
   const entropy = `${address}-${marketId}-${optionIndex}-${Date.now()}-${Math.random()}`;
   return keccak256(stringToHex(entropy));
@@ -78,9 +61,15 @@ export function JoinMarketCard({
     options[0]?.index ?? 0
   );
   const [amount, setAmount] = useState("10");
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
-  const [status, setStatus] = useState<string>("Connect wallet to join this market.");
+  const [status, setStatus] = useState<string>("Connect Farcaster wallet to join this market.");
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { connectAsync, connectors, isPending: isConnecting } = useConnect();
+  const { context, isLoaded } = useFrameSDK();
+  const isInFarcasterMiniApp = !!context?.user?.fid;
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+  const openInFarcasterUrl = `${appBaseUrl}/snap`;
 
   const marketIsClosed = useMemo(() => Date.now() >= closeTime * 1000, [closeTime]);
 
@@ -92,25 +81,28 @@ export function JoinMarketCard({
     }
   }, [options]);
 
+  useEffect(() => {
+    if (isConnected && address) {
+      setStatus("Farcaster wallet connected. Approve and submit your prediction.");
+    }
+  }, [isConnected, address]);
+
   async function connectWallet() {
-    if (!hasEthereumProvider((window as unknown as { ethereum?: unknown }).ethereum)) {
-      setStatus("No injected wallet found. Open inside a wallet-enabled browser.");
+    if (!connectors.length) {
+      setStatus("Farcaster wallet connector unavailable. Open inside Farcaster mini app.");
       return;
     }
 
-    const ethereum = getInjectedProvider();
-    if (!ethereum) {
-      setStatus("No injected wallet found. Open inside a wallet-enabled browser.");
-      return;
-    }
-    const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
-    if (!accounts[0]) {
-      setStatus("Wallet connection failed.");
-      return;
-    }
+    const farcasterConnector = connectors.find((connector) =>
+      connector.id.toLowerCase().includes("farcaster")
+    ) ?? connectors[0];
 
-    setWalletAddress(accounts[0]);
-    setStatus("Wallet connected. Approve and submit your prediction.");
+    try {
+      await connectAsync({ connector: farcasterConnector });
+    } catch {
+      setStatus("Unable to connect Farcaster wallet. Try again in the mini app.");
+      return;
+    }
   }
 
   async function approveAndJoin() {
@@ -118,13 +110,12 @@ export function JoinMarketCard({
       setStatus("Market is closed. New predictions are disabled.");
       return;
     }
-    if (!walletAddress) {
-      setStatus("Connect wallet first.");
+    if (!isConnected || !address) {
+      setStatus("Connect Farcaster wallet first.");
       return;
     }
-    const injectedProvider = getInjectedProvider();
-    if (!injectedProvider) {
-      setStatus("No injected wallet provider found.");
+    if (!walletClient) {
+      setStatus("Farcaster wallet not ready yet. Please try again.");
       return;
     }
 
@@ -143,16 +134,9 @@ export function JoinMarketCard({
 
     setIsWorking(true);
     try {
-      const walletClient = createWalletClient({
-        chain: base,
-        transport: custom(injectedProvider),
-      });
-
-      await walletClient.requestAddresses();
-
       setStatus(`Submitting ${tokenSymbol} approval...`);
       const approveTxHash = await walletClient.sendTransaction({
-        account: walletAddress as `0x${string}`,
+        account: address as `0x${string}`,
         to: tokenAddress,
         data: encodeFunctionData({
           abi: erc20Abi,
@@ -163,9 +147,9 @@ export function JoinMarketCard({
 
       setStatus(`Approval sent: ${approveTxHash}. Sending prediction...`);
 
-      const predictionId = makePredictionId(walletAddress, marketId, selectedOption);
+      const predictionId = makePredictionId(address, marketId, selectedOption);
       const placeTxHash = await walletClient.sendTransaction({
-        account: walletAddress as `0x${string}`,
+        account: address as `0x${string}`,
         to: contractAddress as `0x${string}`,
         data: encodeFunctionData({
           abi: predictionCoreAbi,
@@ -222,22 +206,35 @@ export function JoinMarketCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          onClick={connectWallet}
-          className="rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
-          disabled={isWorking}
-        >
-          {walletAddress ? `Connected ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Connect Wallet"}
-        </button>
-        <button
-          type="button"
-          onClick={approveAndJoin}
-          className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:opacity-60"
-          disabled={isWorking || !walletAddress || marketIsClosed}
-        >
-          {marketIsClosed ? "Market Closed" : isWorking ? "Submitting..." : `Approve + Join (${tokenSymbol})`}
-        </button>
+        {!isInFarcasterMiniApp && isLoaded ? (
+          <a
+            href={openInFarcasterUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+          >
+            Open in Farcaster
+          </a>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={connectWallet}
+              className="rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+              disabled={isWorking || isConnecting}
+            >
+              {address ? `Connected ${address.slice(0, 6)}...${address.slice(-4)}` : isConnecting ? "Connecting..." : "Connect Farcaster Wallet"}
+            </button>
+            <button
+              type="button"
+              onClick={approveAndJoin}
+              className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:opacity-60"
+              disabled={isWorking || !isConnected || !address || !walletClient || marketIsClosed}
+            >
+              {marketIsClosed ? "Market Closed" : isWorking ? "Submitting..." : `Approve + Join (${tokenSymbol})`}
+            </button>
+          </>
+        )}
       </div>
 
       <p className="mt-3 rounded-xl border border-cyan-400/20 bg-slate-900/80 px-3 py-2 text-xs text-cyan-50/85">{status}</p>

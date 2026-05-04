@@ -3,18 +3,14 @@
 import { useMemo, useState } from "react";
 import {
   createPublicClient,
-  createWalletClient,
-  custom,
   encodeFunctionData,
   formatUnits,
   http,
 } from "viem";
 import { base } from "viem/chains";
+import { useAccount, useConnect, useWalletClient } from "wagmi";
 import { BASE_RPC_URL } from "../lib/config";
-
-type Eip1193Provider = {
-  request(args: { method: string; params?: unknown[] | object }): Promise<unknown>;
-};
+import { useFrameSDK } from "../../providers/FrameSDKProvider";
 
 type MarketOption = {
   index: number;
@@ -97,16 +93,6 @@ const publicClient = createPublicClient({ chain: base, transport: http(BASE_RPC_
 const ZERO = BigInt(0);
 const BPS_DENOMINATOR = BigInt(10000);
 
-function hasEthereumProvider(value: unknown): value is { request: (...args: unknown[]) => Promise<unknown> } {
-  return !!value && typeof value === "object" && "request" in value;
-}
-
-function getInjectedProvider(): Eip1193Provider | null {
-  const maybeProvider = (window as Window & { ethereum?: unknown }).ethereum;
-  if (hasEthereumProvider(maybeProvider)) return maybeProvider as Eip1193Provider;
-  return null;
-}
-
 function computeResolvedPayout(
   amount: bigint,
   optionIndex: number,
@@ -135,10 +121,16 @@ export function ClaimMarketCard({
   creatorFeeBps,
   platformFeeBps,
 }: ClaimMarketCardProps) {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
-  const [status, setStatus] = useState("Connect wallet to load your claimable balance.");
+  const [status, setStatus] = useState("Connect Farcaster wallet to load your claimable balance.");
   const [claims, setClaims] = useState<ClaimablePrediction[]>([]);
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { connectAsync, connectors, isPending: isConnecting } = useConnect();
+  const { context, isLoaded } = useFrameSDK();
+  const isInFarcasterMiniApp = !!context?.user?.fid;
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
+  const openInFarcasterUrl = `${appBaseUrl}/snap`;
 
   const marketFinalized = cancelled || resolved;
 
@@ -148,21 +140,32 @@ export function ClaimMarketCard({
   );
 
   async function connectWallet() {
-    const ethereum = getInjectedProvider();
-    if (!ethereum) {
-      setStatus("No injected wallet found. Open inside a wallet-enabled browser.");
+    if (!connectors.length) {
+      setStatus("Farcaster wallet connector unavailable. Open inside Farcaster mini app.");
       return;
     }
 
-    const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
-    if (!accounts[0]) {
+    const farcasterConnector = connectors.find((connector) =>
+      connector.id.toLowerCase().includes("farcaster")
+    ) ?? connectors[0];
+
+    let connectedAddress: string | undefined;
+    try {
+      const result = await connectAsync({ connector: farcasterConnector });
+      connectedAddress = result.accounts?.[0];
+    } catch {
+      setStatus("Unable to connect Farcaster wallet. Try again in the mini app.");
+      return;
+    }
+
+    const activeAddress = connectedAddress || address;
+    if (!activeAddress) {
       setStatus("Wallet connection failed.");
       return;
     }
 
-    setWalletAddress(accounts[0]);
     setStatus("Wallet connected. Checking claimable balance...");
-    await refreshClaims(accounts[0]);
+    await refreshClaims(activeAddress);
   }
 
   async function refreshClaims(address: string) {
@@ -240,33 +243,26 @@ export function ClaimMarketCard({
   }
 
   async function claimPrediction(predictionId: `0x${string}`) {
-    if (!walletAddress) {
-      setStatus("Connect wallet first.");
+    if (!isConnected || !address) {
+      setStatus("Connect Farcaster wallet first.");
       return;
     }
-
-    const injectedProvider = getInjectedProvider();
-    if (!injectedProvider) {
-      setStatus("No injected wallet provider found.");
+    if (!walletClient) {
+      setStatus("Farcaster wallet not ready yet. Please try again.");
       return;
     }
 
     setIsWorking(true);
     try {
-      const walletClient = createWalletClient({
-        chain: base,
-        transport: custom(injectedProvider),
-      });
-
       const functionName = cancelled ? "voidPrediction" : "claimPrediction";
       const txHash = await walletClient.sendTransaction({
-        account: walletAddress as `0x${string}`,
+        account: address as `0x${string}`,
         to: contractAddress as `0x${string}`,
         data: encodeFunctionData({ abi: predictionCoreAbi, functionName, args: [predictionId] }),
       });
 
       setStatus(`${cancelled ? "Refund" : "Claim"} submitted: ${txHash}`);
-      await refreshClaims(walletAddress);
+      await refreshClaims(address);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Claim transaction failed.";
       setStatus(message);
@@ -286,22 +282,35 @@ export function ClaimMarketCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <button
-          type="button"
-          onClick={connectWallet}
-          className="rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
-          disabled={isWorking}
-        >
-          {walletAddress ? `Connected ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : "Connect Wallet"}
-        </button>
-        <button
-          type="button"
-          onClick={() => walletAddress && refreshClaims(walletAddress)}
-          className="rounded-full border border-fuchsia-300/50 px-4 py-2 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/15 disabled:opacity-60"
-          disabled={isWorking || !walletAddress}
-        >
-          Refresh Claims
-        </button>
+        {!isInFarcasterMiniApp && isLoaded ? (
+          <a
+            href={openInFarcasterUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+          >
+            Open in Farcaster
+          </a>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={connectWallet}
+              className="rounded-full border border-cyan-300/40 px-4 py-2 text-sm font-medium text-cyan-100 transition hover:bg-cyan-300/10"
+              disabled={isWorking || isConnecting}
+            >
+              {address ? `Connected ${address.slice(0, 6)}...${address.slice(-4)}` : isConnecting ? "Connecting..." : "Connect Farcaster Wallet"}
+            </button>
+            <button
+              type="button"
+              onClick={() => address && refreshClaims(address)}
+              className="rounded-full border border-fuchsia-300/50 px-4 py-2 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/15 disabled:opacity-60"
+              disabled={isWorking || !isConnected || !address}
+            >
+              Refresh Claims
+            </button>
+          </>
+        )}
       </div>
 
       <div className="mt-4 grid gap-2">
