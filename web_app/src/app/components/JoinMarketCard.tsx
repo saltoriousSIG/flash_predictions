@@ -8,7 +8,7 @@ import {
   parseUnits,
   stringToHex,
 } from "viem";
-import { useAccount, useConnect, useWalletClient } from "wagmi";
+import { useAccount, useConnect, usePublicClient, useWalletClient } from "wagmi";
 import { useFrameSDK } from "../../providers/FrameSDKProvider";
 
 type Option = {
@@ -63,8 +63,10 @@ export function JoinMarketCard({
   const [amount, setAmount] = useState("10");
   const [isWorking, setIsWorking] = useState(false);
   const [status, setStatus] = useState<string>("Connect Farcaster wallet to join this market.");
+  const [allowanceRaw, setAllowanceRaw] = useState<bigint>(BigInt(0));
   const { address, isConnected } = useAccount();
   const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
   const { connectAsync, connectors, isPending: isConnecting } = useConnect();
   const { context, isLoaded } = useFrameSDK();
   const isInFarcasterMiniApp = !!context?.user?.fid;
@@ -87,6 +89,43 @@ export function JoinMarketCard({
     }
   }, [isConnected, address]);
 
+  async function readAllowance(owner: string) {
+    if (!publicClient) return BigInt(0);
+
+    const allowance = await publicClient.readContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [owner as `0x${string}`, contractAddress as `0x${string}`],
+    });
+
+    return allowance;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshAllowance = async () => {
+      if (!address || !isConnected) {
+        if (!cancelled) setAllowanceRaw(BigInt(0));
+        return;
+      }
+
+      try {
+        const allowance = await readAllowance(address);
+        if (!cancelled) setAllowanceRaw(allowance);
+      } catch {
+        if (!cancelled) setAllowanceRaw(BigInt(0));
+      }
+    };
+
+    void refreshAllowance();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, isConnected, amount, publicClient, tokenAddress, contractAddress]);
+
   async function connectWallet() {
     if (!connectors.length) {
       setStatus("Farcaster wallet connector unavailable. Open inside Farcaster mini app.");
@@ -105,30 +144,27 @@ export function JoinMarketCard({
     }
   }
 
-  async function approveAndJoin() {
-    if (marketIsClosed) {
-      setStatus("Market is closed. New predictions are disabled.");
-      return;
-    }
+  let parsedAmount: bigint | null = null;
+  try {
+    parsedAmount = parseUnits(amount, tokenDecimals);
+  } catch {
+    parsedAmount = null;
+  }
+
+  const hasValidAmount = !!parsedAmount && parsedAmount > BigInt(0);
+  const isApproved = !!parsedAmount && allowanceRaw >= parsedAmount;
+
+  async function approveToken() {
     if (!isConnected || !address) {
       setStatus("Connect Farcaster wallet first.");
       return;
     }
-    if (!walletClient) {
+    if (!walletClient || !publicClient) {
       setStatus("Farcaster wallet not ready yet. Please try again.");
       return;
     }
-
-    let parsedAmount: bigint;
-    try {
-      parsedAmount = parseUnits(amount, tokenDecimals);
-    } catch {
-      setStatus("Invalid amount format.");
-      return;
-    }
-
-    if (parsedAmount <= BigInt(0)) {
-      setStatus("Amount must be greater than zero.");
+    if (!hasValidAmount || !parsedAmount) {
+      setStatus("Enter a valid amount first.");
       return;
     }
 
@@ -145,9 +181,46 @@ export function JoinMarketCard({
         }),
       });
 
-      setStatus(`Approval sent: ${approveTxHash}. Sending prediction...`);
+      setStatus(`Approval submitted: ${approveTxHash}. Waiting for confirmation...`);
+      await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
 
+      const refreshedAllowance = await readAllowance(address);
+      setAllowanceRaw(refreshedAllowance);
+      setStatus("Approval confirmed. You can now submit your prediction.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Approval failed";
+      setStatus(message);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function submitPrediction() {
+    if (marketIsClosed) {
+      setStatus("Market is closed. New predictions are disabled.");
+      return;
+    }
+    if (!isConnected || !address) {
+      setStatus("Connect Farcaster wallet first.");
+      return;
+    }
+    if (!walletClient) {
+      setStatus("Farcaster wallet not ready yet. Please try again.");
+      return;
+    }
+    if (!hasValidAmount || !parsedAmount) {
+      setStatus("Enter a valid amount first.");
+      return;
+    }
+    if (!isApproved) {
+      setStatus("Approve token first before submitting prediction.");
+      return;
+    }
+
+    setIsWorking(true);
+    try {
       const predictionId = makePredictionId(address, marketId, selectedOption);
+      setStatus("Submitting prediction...");
       const placeTxHash = await walletClient.sendTransaction({
         account: address as `0x${string}`,
         to: contractAddress as `0x${string}`,
@@ -160,7 +233,7 @@ export function JoinMarketCard({
 
       setStatus(`Prediction submitted: ${placeTxHash}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Transaction failed";
+      const message = error instanceof Error ? error.message : "Prediction failed";
       setStatus(message);
     } finally {
       setIsWorking(false);
@@ -227,11 +300,19 @@ export function JoinMarketCard({
             </button>
             <button
               type="button"
-              onClick={approveAndJoin}
-              className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:opacity-60"
-              disabled={isWorking || !isConnected || !address || !walletClient || marketIsClosed}
+              onClick={approveToken}
+              className="rounded-full border border-fuchsia-300/50 px-4 py-2 text-sm font-semibold text-fuchsia-100 transition hover:bg-fuchsia-300/15 disabled:opacity-60"
+              disabled={isWorking || !isConnected || !address || !walletClient || !publicClient || !hasValidAmount}
             >
-              {marketIsClosed ? "Market Closed" : isWorking ? "Submitting..." : `Approve + Join (${tokenSymbol})`}
+              {isApproved ? `Approved ${tokenSymbol}` : isWorking ? "Approving..." : `Approve ${tokenSymbol}`}
+            </button>
+            <button
+              type="button"
+              onClick={submitPrediction}
+              className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:opacity-60"
+              disabled={isWorking || !isConnected || !address || !walletClient || marketIsClosed || !hasValidAmount || !isApproved}
+            >
+              {marketIsClosed ? "Market Closed" : isWorking ? "Submitting..." : `Submit Prediction (${tokenSymbol})`}
             </button>
           </>
         )}
