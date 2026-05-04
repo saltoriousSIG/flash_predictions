@@ -194,3 +194,5 @@ export async function getLatestMarketSnapshot() {
     })),
   };
 }
+
+export type MarketSnapshot = Awaited<ReturnType<typeof getLatestMarketSnapshot>>;
