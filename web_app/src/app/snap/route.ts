@@ -1,4 +1,5 @@
 import { STREAM_EMBED_URL } from "../lib/config";
+import { getLatestMarketSnapshot } from "../lib/market";
 
 const SNAP_CONTENT_TYPE = "application/vnd.farcaster.snap+json";
 
@@ -40,29 +41,19 @@ function fallbackHtml() {
   );
 }
 
-function renderGetSnap(baseUrl: string) {
+function renderNoMarketSnap(baseUrl: string) {
   return {
     version: "2.0",
     theme: { accent: "blue" },
     ui: {
       root: "page",
       elements: {
-        page: { type: "stack", props: {}, children: ["title", "body", "pickYes", "pickNo", "open"] },
+        page: { type: "stack", props: {}, children: ["title", "body", "open"] },
         title: { type: "text", props: { content: "Flash Predictions", weight: "bold" } },
-        body: { type: "text", props: { content: "Will FattyButHappy complete the food challenge?", size: "sm" } },
-        pickYes: {
-          type: "button",
-          props: { label: "Yes", variant: "primary" },
-          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=yes` } } },
-        },
-        pickNo: {
-          type: "button",
-          props: { label: "No" },
-          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=no` } } },
-        },
+        body: { type: "text", props: { content: "No live market right now. Open the mini app for updates.", size: "sm" } },
         open: {
           type: "button",
-          props: { label: "Open mini app" },
+          props: { label: "Open mini app", variant: "primary" },
           on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?stream=${encodeURIComponent(STREAM_EMBED_URL)}` } } },
         },
       },
@@ -70,9 +61,18 @@ function renderGetSnap(baseUrl: string) {
   };
 }
 
-function renderPostSnap(baseUrl: string, option: string | null) {
-  const isYes = option === "yes";
-  const label = isYes ? "Yes" : "No";
+function getMarketStatus(market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>) {
+  if (market.cancelled) return "Cancelled";
+  if (market.resolved) return "Resolved";
+  if (market.isClosed || Date.now() >= market.closeTime * 1000) return "Closed";
+  return "Open";
+}
+
+function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>) {
+  const options = market.options.slice(0, 2);
+  const first = options[0] ?? { index: 0, label: "Option 1", poolDisplay: "0" };
+  const second = options[1] ?? { index: 1, label: "Option 2", poolDisplay: "0" };
+  const status = getMarketStatus(market);
 
   return {
     version: "2.0",
@@ -80,22 +80,86 @@ function renderPostSnap(baseUrl: string, option: string | null) {
     ui: {
       root: "page",
       elements: {
-        page: { type: "stack", props: {}, children: ["title", "body", "open", "share"] },
-        title: { type: "text", props: { content: "Vote recorded", weight: "bold" } },
-        body: { type: "text", props: { content: `You picked: ${label}`, size: "sm" } },
+        page: { type: "stack", props: {}, children: ["title", "meta", "pool", "pickOne", "pickTwo", "open", "share"] },
+        title: { type: "text", props: { content: market.question, weight: "bold" } },
+        meta: { type: "text", props: { content: `Status: ${status} · #${market.marketId}`, size: "sm" } },
+        pool: {
+          type: "text",
+          props: {
+            content: `${first.label}: ${first.poolDisplay} ${market.tokenSymbol}  |  ${second.label}: ${second.poolDisplay} ${market.tokenSymbol}`,
+            size: "sm",
+          },
+        },
+        pickOne: {
+          type: "button",
+          props: { label: first.label, variant: "primary" },
+          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=${first.index}` } } },
+        },
+        pickTwo: {
+          type: "button",
+          props: { label: second.label },
+          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=${second.index}` } } },
+        },
         open: {
           type: "button",
-          props: { label: "Open mini app", variant: "primary" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?option=${isYes ? 0 : 1}` } } },
+          props: { label: "Open mini app" },
+          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&stream=${encodeURIComponent(STREAM_EMBED_URL)}` } } },
         },
         share: {
           type: "button",
-          props: { label: "Share" },
+          props: { label: "Share market" },
           on: {
             press: {
               action: "compose_cast",
               params: {
-                text: `I voted ${label} on Flash Predictions.`,
+                text: `Live on Flash Predictions: ${market.question}`,
+                embeds: [`${baseUrl}/snap`],
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function renderPostSnap(
+  baseUrl: string,
+  market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>,
+  selectedOptionIndex: number
+) {
+  const selected = market.options.find((option) => option.index === selectedOptionIndex);
+  const selectedLabel = selected?.label ?? `Option ${selectedOptionIndex}`;
+  const status = getMarketStatus(market);
+
+  return {
+    version: "2.0",
+    theme: { accent: "blue" },
+    ui: {
+      root: "page",
+      elements: {
+        page: { type: "stack", props: {}, children: ["title", "body", "status", "open", "again", "share"] },
+        title: { type: "text", props: { content: "Vote selected", weight: "bold" } },
+        body: { type: "text", props: { content: `You picked: ${selectedLabel}`, size: "sm" } },
+        status: { type: "text", props: { content: `Market status: ${status}`, size: "sm" } },
+        open: {
+          type: "button",
+          props: { label: "Open mini app", variant: "primary" },
+          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&option=${selectedOptionIndex}` } } },
+        },
+        again: {
+          type: "button",
+          props: { label: "Back to options" },
+          on: { press: { action: "submit", params: { target: `${baseUrl}/snap` } } },
+        },
+        share: {
+          type: "button",
+          props: { label: "Share vote" },
+          on: {
+            press: {
+              action: "compose_cast",
+              params: {
+                text: `I picked ${selectedLabel} on Flash Predictions.`,
                 embeds: [`${baseUrl}/snap`],
               },
             },
@@ -112,7 +176,12 @@ export async function GET(request: Request) {
   if (!accept.includes(SNAP_CONTENT_TYPE)) {
     return fallbackHtml();
   }
-  return jsonSnap(renderGetSnap(baseUrl));
+  try {
+    const market = await getLatestMarketSnapshot();
+    return jsonSnap(market ? renderGetSnap(baseUrl, market) : renderNoMarketSnap(baseUrl));
+  } catch {
+    return jsonSnap(renderNoMarketSnap(baseUrl));
+  }
 }
 
 export async function POST(request: Request) {
@@ -121,11 +190,24 @@ export async function POST(request: Request) {
   const action = url.searchParams.get("action");
   const option = url.searchParams.get("option");
 
-  if (action === "pick") {
-    return jsonSnap(renderPostSnap(baseUrl, option), true);
-  }
+  try {
+    const market = await getLatestMarketSnapshot();
+    if (!market) {
+      return jsonSnap(renderNoMarketSnap(baseUrl), true);
+    }
 
-  return jsonSnap(renderGetSnap(baseUrl));
+    if (action === "pick") {
+      const selectedOptionIndex = Number(option);
+      if (Number.isInteger(selectedOptionIndex)) {
+        return jsonSnap(renderPostSnap(baseUrl, market, selectedOptionIndex), true);
+      }
+      return jsonSnap(renderGetSnap(baseUrl, market), true);
+    }
+
+    return jsonSnap(renderGetSnap(baseUrl, market), true);
+  } catch {
+    return jsonSnap(renderNoMarketSnap(baseUrl), true);
+  }
 }
 
 export async function OPTIONS() {
