@@ -19,7 +19,7 @@ export function UserNavbar() {
 
   return (
     <header className="flex items-center justify-between gap-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Fatty But Happy</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-300">Flash Predictions</p>
       <div className="flex items-center gap-2">
         {!isLoaded ? (
           <span className="text-xs text-cyan-200/80">Loading…</span>

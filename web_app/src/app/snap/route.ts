@@ -15,7 +15,7 @@ function jsonSnap(body: unknown, isPersonalized = false) {
 
 function fallbackHtml() {
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8" /><title>Fatty But Happy Snap</title></head><body style="font-family: sans-serif; padding: 24px;"><h1>Fatty But Happy Snap</h1><p>Open this URL inside Farcaster to interact with the prediction market.</p><p><a href="/">Go to mini app</a></p></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8" /><title>Flash Predictions Snap</title></head><body style="font-family: sans-serif; padding: 24px;"><h1>Flash Predictions Snap</h1><p>Open this URL inside Farcaster to interact with the prediction market.</p><p><a href="/">Go to mini app</a></p></body></html>`,
     {
       headers: {
         "Content-Type": "text/html; charset=utf-8",

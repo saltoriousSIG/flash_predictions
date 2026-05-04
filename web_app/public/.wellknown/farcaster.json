@@ -1,0 +1,26 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjQ4MzcxMywidHlwZSI6ImF1dGgiLCJrZXkiOiIweDQ2M0IxRThFNzhCMjgwMjdiNDIzRWE2ZjAwNjk1ZjAxYTg0RUZlNzIifQ",
+    "payload": "eyJkb21haW4iOiJhbW9uZ3RyYWl0b3JzLmdnIn0",
+    "signature": "k1UaCeWjzTUH2YYlfr48qFMunBBKLyd9l4qH9kqSntky+v53ovU8MiQgJpn9tXhTWNwWmNnD2/eZcUqnep3lnBs="
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Flash Predictions",
+    "tagline": "Live food challenge prediction market on Base",
+    "description": "Predict whether FattyButHappy completes the challenge and track outcomes live onchain.",
+    "iconUrl": "https://flash-predictions-web-app.vercel.app/next.svg",
+    "homeUrl": "https://flash-predictions-web-app.vercel.app",
+    "splashImageUrl": "https://flash-predictions-web-app.vercel.app/next.svg",
+    "splashBackgroundColor": "#0A0A0C",
+    "heroImageUrl": "https://flash-predictions-web-app.vercel.app/vercel.svg",
+    "buttonTitle": "Flash Predictions",
+    "ogTitle": "Flash Predictions",
+    "ogDescription": "Prediction market for FattyButHappy challenge outcomes on Base.",
+    "ogImageUrl": "https://flash-predictions-web-app.vercel.app/vercel.svg",
+    "requiredChains": ["eip155:8453"],
+    "primaryCategory": "social",
+    "tags": ["prediction", "base", "farcaster", "food-challenge"],
+    "actions": ["viewProfile"]
+  }
+}

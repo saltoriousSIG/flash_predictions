@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Fatty But Happy",
+  title: "Flash Predictions",
   description: "Live prediction market for today's eating challenge",
 };
 

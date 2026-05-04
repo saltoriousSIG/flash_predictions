@@ -1,5 +1,5 @@
 {
-  "name": "fattybuthappy",
+  "name": "flash-predictions",
   "private": true,
   "version": "0.1.0",
   "workspaces": [
@@ -7,11 +7,11 @@
     "web_app"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=@fattybuthappy/web_app",
-    "build:web": "npm run build --workspace=@fattybuthappy/web_app",
-    "dev:contracts": "npm run node --workspace=@fattybuthappy/contracts",
-    "compile:contracts": "npm run compile --workspace=@fattybuthappy/contracts",
-    "test:contracts": "npm run test --workspace=@fattybuthappy/contracts",
+    "dev:web": "npm run dev --workspace=@flash-predictions/web_app",
+    "build:web": "npm run build --workspace=@flash-predictions/web_app",
+    "dev:contracts": "npm run node --workspace=@flash-predictions/contracts",
+    "compile:contracts": "npm run compile --workspace=@flash-predictions/contracts",
+    "test:contracts": "npm run test --workspace=@flash-predictions/contracts",
     "test:snap": "node scripts/test-snap.mjs"
   }
 }
