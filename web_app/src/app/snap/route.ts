@@ -81,7 +81,7 @@ function renderMarketSnap(baseUrl: string, optionIndex?: number) {
             },
             share: {
               type: "button",
-              props: { label: "Share market", icon: "share" },
+              props: { label: "Share market" },
               on: {
                 press: {
                   action: "compose_cast",
@@ -94,7 +94,7 @@ function renderMarketSnap(baseUrl: string, optionIndex?: number) {
       };
     }
 
-    const optionButtons = market.options.slice(0, 4).map((option) => ({
+    const optionButtons = market.options.slice(0, 2).map((option) => ({
       id: `option-${option.index}`,
       label: option.label.slice(0, 30),
       target: `${baseUrl}/snap?action=pick&option=${option.index}`,
@@ -109,7 +109,7 @@ function renderMarketSnap(baseUrl: string, optionIndex?: number) {
       pool: { type: "text", props: { content: `Pool: ${market.totalPoolDisplay} ${market.tokenSymbol}`, size: "sm" } },
       watch: {
         type: "button",
-        props: { label: "Watch stream", icon: "play" },
+        props: { label: "Watch stream" },
         on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?stream=${encodeURIComponent(STREAM_EMBED_URL)}` } } },
       },
     };
