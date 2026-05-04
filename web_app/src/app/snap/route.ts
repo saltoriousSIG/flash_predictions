@@ -3,12 +3,19 @@ import { getLatestMarketSnapshot } from "../lib/market";
 
 const SNAP_CONTENT_TYPE = "application/vnd.farcaster.snap+json";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+  "Access-Control-Allow-Headers": "Accept, Content-Type, X-Snap-Payload, X-Farcaster-Signature, Authorization",
+};
+
 function jsonSnap(body: unknown, isPersonalized = false) {
   return Response.json(body, {
     headers: {
       "Content-Type": SNAP_CONTENT_TYPE,
       Vary: "Accept, X-Snap-Payload",
       "Cache-Control": isPersonalized ? "private, max-age=30" : "public, max-age=30",
+      ...CORS_HEADERS,
     },
   });
 }
@@ -21,6 +28,7 @@ function fallbackHtml() {
         "Content-Type": "text/html; charset=utf-8",
         Link: `</snap>; rel="alternate"; type="${SNAP_CONTENT_TYPE}"`,
         Vary: "Accept",
+        ...CORS_HEADERS,
       },
     }
   );
@@ -159,4 +167,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return snapResponse(request);
+}
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...CORS_HEADERS,
+      "Access-Control-Max-Age": "86400",
+    },
+  });
 }
