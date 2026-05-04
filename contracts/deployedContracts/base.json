@@ -1,0 +1,16 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "deployer": "0x463B1E8E78B28027b423Ea6f00695f01a84EFe72",
+  "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "admin": "0x463B1E8E78B28027b423Ea6f00695f01a84EFe72",
+  "platformFeeBps": 1000,
+  "diamond": "0xF13489ACEE7482f548052E610Db82F73AEE98885",
+  "facets": {
+    "predictionCoreFacet": "0x3B2e44a9806350756af8dA9904bFAB7AcD723eFB",
+    "predictionMarketViewFacet": "0x6F002FeC18D3a4381aD8A83ACADc518A0339CdC5",
+    "protocolAdminFacet": "0xD18df21e3F27476c4E3738b265A42524c71f8aaA",
+    "protocolSafetyFacet": "0x1AfF1273E40526892971BB5E5A42a2a1028c545c"
+  },
+  "deployedAt": "2026-05-04T13:39:38.274Z"
+}

@@ -1,0 +1,17 @@
+{
+  "name": "fattybuthappy",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "contracts",
+    "web_app"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@fattybuthappy/web_app",
+    "build:web": "npm run build --workspace=@fattybuthappy/web_app",
+    "dev:contracts": "npm run node --workspace=@fattybuthappy/contracts",
+    "compile:contracts": "npm run compile --workspace=@fattybuthappy/contracts",
+    "test:contracts": "npm run test --workspace=@fattybuthappy/contracts",
+    "test:snap": "node scripts/test-snap.mjs"
+  }
+}

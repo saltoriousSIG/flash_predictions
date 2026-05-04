@@ -1,0 +1,16 @@
+node_modules/
+.DS_Store
+
+# Next.js
+web_app/.next/
+web_app/out/
+
+# Hardhat
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/ignition/deployments/
+
+# Env
+.env
+.env.local
