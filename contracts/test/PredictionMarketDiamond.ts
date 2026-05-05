@@ -145,4 +145,22 @@ describe("PredictionMarketDiamond", function () {
       "MARKET_ENTRY_CLOSED"
     );
   });
+
+  it("lets admin extend market close time", async function () {
+    const { admin, alice, core, protocolAdmin, view } = await deployFixture();
+    const options = [
+      { label: "Yes", value: "yes" },
+      { label: "No", value: "no" },
+    ];
+    const initialCloseTime = (await time.latest()) + 30;
+    await core.connect(admin).createMarket("game-1", "Will it happen?", "general", initialCloseTime, options);
+
+    const extendedCloseTime = initialCloseTime + 3600;
+    await protocolAdmin.connect(admin).extendMarketCloseTime(0, extendedCloseTime);
+
+    const market = await view.getMarket(0);
+    expect(market.closeTime).to.equal(extendedCloseTime);
+
+    await expect(protocolAdmin.connect(alice).extendMarketCloseTime(0, extendedCloseTime + 10)).to.be.revertedWith("NOT_ADMIN");
+  });
 });

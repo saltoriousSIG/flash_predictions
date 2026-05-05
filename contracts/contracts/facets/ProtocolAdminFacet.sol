@@ -27,6 +27,23 @@ contract ProtocolAdminFacet is IProtocolAdminFacet {
         emit PlatformFeeUpdated(previousFeeBps, newPlatformFeeBps);
     }
 
+    function extendMarketCloseTime(uint256 marketId, uint256 newCloseTime) external {
+        LibMarket.enforceIsAdmin();
+        LibMarket.MarketStorage storage ms = LibMarket.getStorage();
+        require(LibMarket.marketExists(marketId), "MARKET_NOT_FOUND");
+
+        LibMarket.Market storage market = ms.markets[marketId];
+        require(!market.resolved, "MARKET_RESOLVED");
+        require(!market.isClosed, "MARKET_CLOSED");
+
+        uint256 previousCloseTime = market.closeTime;
+        require(newCloseTime > previousCloseTime, "NEW_CLOSE_TIME_MUST_INCREASE");
+        require(newCloseTime > block.timestamp, "INVALID_CLOSE_TIME");
+
+        market.closeTime = newCloseTime;
+        emit MarketCloseTimeExtended(marketId, previousCloseTime, newCloseTime);
+    }
+
     function withdrawFees(address to, uint256 amount) external {
         LibMarket.enforceIsAdmin();
         require(to != address(0), "INVALID_RECIPIENT");

@@ -8,7 +8,9 @@
     "node": "hardhat node",
     "clean": "hardhat clean",
     "deploy:market": "hardhat run scripts/deploy.ts",
-    "create:market": "hardhat run scripts/createMarket.ts"
+    "create:market": "hardhat run scripts/createMarket.ts",
+    "diamondcut:admin": "hardhat run scripts/diamondCutAdminFacet.ts",
+    "extend:market-close": "hardhat run scripts/extendMarketCloseTime.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",

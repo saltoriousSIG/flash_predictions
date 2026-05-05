@@ -1,4 +1,4 @@
-import { STREAM_EMBED_URL } from "../lib/config";
+import { TWITCH_CHANNEL } from "../lib/config";
 import { getLatestMarketSnapshot } from "../lib/market";
 
 const SNAP_CONTENT_TYPE = "application/vnd.farcaster.snap+json";
@@ -54,7 +54,7 @@ function renderNoMarketSnap(baseUrl: string) {
         open: {
           type: "button",
           props: { label: "Open mini app", variant: "primary" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?stream=${encodeURIComponent(STREAM_EMBED_URL)}` } } },
+          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?channel=${encodeURIComponent(TWITCH_CHANNEL)}` } } },
         },
       },
     },
@@ -103,7 +103,7 @@ function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<t
         open: {
           type: "button",
           props: { label: "Open mini app" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&stream=${encodeURIComponent(STREAM_EMBED_URL)}` } } },
+          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&channel=${encodeURIComponent(TWITCH_CHANNEL)}` } } },
         },
         share: {
           type: "button",

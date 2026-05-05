@@ -2,9 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { CONTRACT_ADDRESS, STREAM_EMBED_URL } from "../lib/config";
+import { CONTRACT_ADDRESS, TWITCH_CHANNEL } from "../lib/config";
 import { JoinMarketCard } from "./JoinMarketCard";
 import { UserNavbar } from "./UserNavbar";
+import { TwitchStreamEmbed } from "./TwitchStreamEmbed";
 import type { MarketSnapshot } from "../lib/market";
 
 async function fetchLatestMarketSnapshot(): Promise<MarketSnapshot> {
@@ -37,6 +38,17 @@ function marketStatus({
 }
 
 export function LiveMarketPage({ initialMarket }: { initialMarket: MarketSnapshot }) {
+  const parentDomain = typeof window !== "undefined"
+    ? window.location.hostname
+    : (() => {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+        try {
+          return appUrl ? new URL(appUrl).hostname : "flash-predictions-web-app.vercel.app";
+        } catch {
+          return "flash-predictions-web-app.vercel.app";
+        }
+      })();
+
   const { data: market } = useQuery({
     queryKey: ["latest-market"],
     queryFn: fetchLatestMarketSnapshot,
@@ -66,16 +78,7 @@ export function LiveMarketPage({ initialMarket }: { initialMarket: MarketSnapsho
             <div className="border-b border-cyan-300/25 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-semibold text-cyan-100">Live Stream</h2>
             </div>
-            <div className="aspect-[4/3] bg-stone-900 sm:aspect-video">
-              <iframe
-                src={STREAM_EMBED_URL}
-                title="Eating challenge stream"
-                className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            </div>
+            <TwitchStreamEmbed channel={TWITCH_CHANNEL} parentDomain={parentDomain} />
           </div>
 
           <div className="rounded-3xl border border-fuchsia-300/30 bg-slate-950/70 p-4 shadow-[0_0_0_1px_rgba(217,70,239,0.12),0_25px_55px_-36px_rgba(232,121,249,0.65)] sm:p-5">
