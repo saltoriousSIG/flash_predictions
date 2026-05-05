@@ -97,29 +97,41 @@ export function JoinMarketCard({
     return allowance;
   }, [publicClient, tokenAddress, contractAddress]);
 
+  const refreshAllowanceState = useCallback(async () => {
+    if (!address || !isConnected) {
+      setAllowanceRaw(BigInt(0));
+      return BigInt(0);
+    }
+
+    try {
+      const allowance = await readAllowance(address);
+      setAllowanceRaw(allowance);
+      return allowance;
+    } catch {
+      setAllowanceRaw(BigInt(0));
+      return BigInt(0);
+    }
+  }, [address, isConnected, readAllowance]);
+
   useEffect(() => {
     let cancelled = false;
 
     const refreshAllowance = async () => {
-      if (!address || !isConnected) {
-        if (!cancelled) setAllowanceRaw(BigInt(0));
-        return;
-      }
-
-      try {
-        const allowance = await readAllowance(address);
-        if (!cancelled) setAllowanceRaw(allowance);
-      } catch {
-        if (!cancelled) setAllowanceRaw(BigInt(0));
-      }
+      await refreshAllowanceState();
+      if (cancelled) return;
     };
 
     void refreshAllowance();
 
+    const intervalId = window.setInterval(() => {
+      void refreshAllowance();
+    }, 5000);
+
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
     };
-  }, [address, isConnected, amount, readAllowance]);
+  }, [amount, refreshAllowanceState]);
 
   async function connectWallet() {
     if (!connectors.length) {
@@ -179,9 +191,22 @@ export function JoinMarketCard({
       setStatus(`Approval submitted: ${approveTxHash}. Waiting for confirmation...`);
       await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
 
-      const refreshedAllowance = await readAllowance(address);
-      setAllowanceRaw(refreshedAllowance);
-      setStatus("Approval confirmed. You can now submit your prediction.");
+      let refreshedAllowance = await refreshAllowanceState();
+      if (refreshedAllowance < parsedAmount) {
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          refreshedAllowance = await refreshAllowanceState();
+          if (refreshedAllowance >= parsedAmount) {
+            break;
+          }
+        }
+      }
+
+      setStatus(
+        refreshedAllowance >= parsedAmount
+          ? "Approval confirmed. You can now submit your prediction."
+          : "Approval sent. Waiting for allowance update..."
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Approval failed";
       setStatus(message);

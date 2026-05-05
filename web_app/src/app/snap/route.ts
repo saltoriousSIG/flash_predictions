@@ -1,4 +1,3 @@
-import { TWITCH_CHANNEL } from "../lib/config";
 import { getLatestMarketSnapshot } from "../lib/market";
 
 const SNAP_CONTENT_TYPE = "application/vnd.farcaster.snap+json";
@@ -70,11 +69,7 @@ function renderNoMarketSnap(baseUrl: string) {
           on: {
             press: {
               action: "open_mini_app",
-              params: {
-                target: `${baseUrl}/?channel=${encodeURIComponent(
-                  TWITCH_CHANNEL,
-                )}`,
-              },
+              params: { target: `${baseUrl}/` },
             },
           },
         },
@@ -172,11 +167,7 @@ function renderGetSnap(
           on: {
             press: {
               action: "open_mini_app",
-              params: {
-                target: `${baseUrl}/?marketId=${
-                  market.marketId
-                }&channel=${encodeURIComponent(TWITCH_CHANNEL)}`,
-              },
+              params: { target: `${baseUrl}/?marketId=${market.marketId}` },
             },
           },
         },
