@@ -38,16 +38,27 @@ function marketStatus({
 }
 
 export function LiveMarketPage({ initialMarket }: { initialMarket: MarketSnapshot }) {
-  const parentDomain = typeof window !== "undefined"
-    ? window.location.hostname
-    : (() => {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
-        try {
-          return appUrl ? new URL(appUrl).hostname : "flash-predictions-web-app.vercel.app";
-        } catch {
-          return "flash-predictions-web-app.vercel.app";
-        }
-      })();
+  const parentDomains = (() => {
+    const set = new Set<string>();
+    const envUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+
+    if (typeof window !== "undefined") {
+      set.add(window.location.hostname);
+    }
+
+    if (envUrl) {
+      try {
+        set.add(new URL(envUrl).hostname);
+      } catch {
+        // ignore invalid NEXT_PUBLIC_APP_URL
+      }
+    }
+
+    set.add("flash-predictions-web-app.vercel.app");
+    set.add("farcaster.xyz");
+
+    return Array.from(set).filter(Boolean);
+  })();
 
   const { data: market } = useQuery({
     queryKey: ["latest-market"],
@@ -78,7 +89,7 @@ export function LiveMarketPage({ initialMarket }: { initialMarket: MarketSnapsho
             <div className="border-b border-cyan-300/25 px-4 py-3 sm:px-6 sm:py-4">
               <h2 className="text-lg font-semibold text-cyan-100">Live Stream</h2>
             </div>
-            <TwitchStreamEmbed channel={TWITCH_CHANNEL} parentDomain={parentDomain} />
+            <TwitchStreamEmbed channel={TWITCH_CHANNEL} parentDomains={parentDomains} />
           </div>
 
           <div className="rounded-3xl border border-fuchsia-300/30 bg-slate-950/70 p-4 shadow-[0_0_0_1px_rgba(217,70,239,0.12),0_25px_55px_-36px_rgba(232,121,249,0.65)] sm:p-5">

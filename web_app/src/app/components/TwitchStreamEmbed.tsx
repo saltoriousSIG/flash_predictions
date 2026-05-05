@@ -4,19 +4,17 @@ import { useMemo } from "react";
 
 type TwitchStreamEmbedProps = {
   channel: string;
-  parentDomain: string;
+  parentDomains: string[];
 };
 
-export function TwitchStreamEmbed({ channel, parentDomain }: TwitchStreamEmbedProps) {
+export function TwitchStreamEmbed({ channel, parentDomains }: TwitchStreamEmbedProps) {
   const twitchEmbedUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      channel,
-      parent: parentDomain,
-      autoplay: "true",
-      muted: "true",
-    });
+    const params = new URLSearchParams({ channel, autoplay: "true", muted: "true" });
+    for (const parentDomain of parentDomains) {
+      params.append("parent", parentDomain);
+    }
     return `https://player.twitch.tv/?${params.toString()}`;
-  }, [channel, parentDomain]);
+  }, [channel, parentDomains]);
 
   return (
     <div className="aspect-[4/3] bg-stone-900 sm:aspect-video">
