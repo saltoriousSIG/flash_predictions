@@ -6,7 +6,8 @@ const SNAP_CONTENT_TYPE = "application/vnd.farcaster.snap+json";
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-  "Access-Control-Allow-Headers": "Accept, Content-Type, X-Snap-Payload, X-Farcaster-Signature, Authorization",
+  "Access-Control-Allow-Headers":
+    "Accept, Content-Type, X-Snap-Payload, X-Farcaster-Signature, Authorization",
 };
 
 function getBaseUrl(request: Request) {
@@ -21,7 +22,9 @@ function jsonSnap(body: unknown, isPersonalized = false) {
     headers: {
       "Content-Type": SNAP_CONTENT_TYPE,
       Vary: "Accept, X-Snap-Payload",
-      "Cache-Control": isPersonalized ? "private, no-store" : "public, no-store",
+      "Cache-Control": isPersonalized
+        ? "private, no-store"
+        : "public, no-store",
       ...CORS_HEADERS,
     },
   });
@@ -38,7 +41,7 @@ function fallbackHtml() {
         "Cache-Control": "no-store",
         ...CORS_HEADERS,
       },
-    }
+    },
   );
 }
 
@@ -50,29 +53,56 @@ function renderNoMarketSnap(baseUrl: string) {
       root: "page",
       elements: {
         page: { type: "stack", props: {}, children: ["title", "body", "open"] },
-        title: { type: "text", props: { content: "Flash Predictions", weight: "bold" } },
-        body: { type: "text", props: { content: "No live market right now. Open the mini app for updates.", size: "sm" } },
+        title: {
+          type: "text",
+          props: { content: "Flash Predictions", weight: "bold" },
+        },
+        body: {
+          type: "text",
+          props: {
+            content: "No live market right now. Open the mini app for updates.",
+            size: "sm",
+          },
+        },
         open: {
           type: "button",
           props: { label: "Open mini app", variant: "primary" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?channel=${encodeURIComponent(TWITCH_CHANNEL)}` } } },
+          on: {
+            press: {
+              action: "open_mini_app",
+              params: {
+                target: `${baseUrl}/?channel=${encodeURIComponent(
+                  TWITCH_CHANNEL,
+                )}`,
+              },
+            },
+          },
         },
       },
     },
   };
 }
 
-function getMarketStatus(market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>) {
+function getMarketStatus(
+  market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>,
+) {
   if (market.cancelled) return "Cancelled";
   if (market.resolved) return "Resolved";
   if (market.isClosed || Date.now() >= market.closeTime * 1000) return "Closed";
   return "Open";
 }
 
-function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>) {
+function renderGetSnap(
+  baseUrl: string,
+  market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>,
+) {
   const options = market.options.slice(0, 2);
   const first = options[0] ?? { index: 0, label: "Option 1", poolDisplay: "0" };
-  const second = options[1] ?? { index: 1, label: "Option 2", poolDisplay: "0" };
+  const second = options[1] ?? {
+    index: 1,
+    label: "Option 2",
+    poolDisplay: "0",
+  };
   const status = getMarketStatus(market);
 
   return {
@@ -81,9 +111,30 @@ function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<t
     ui: {
       root: "page",
       elements: {
-        page: { type: "stack", props: {}, children: ["title", "meta", "pool", "pickOne", "pickTwo", "open", "share"] },
-        title: { type: "text", props: { content: market.question, weight: "bold" } },
-        meta: { type: "text", props: { content: `Status: ${status} · #${market.marketId}`, size: "sm" } },
+        page: {
+          type: "stack",
+          props: {},
+          children: [
+            "title",
+            "meta",
+            "pool",
+            "pickOne",
+            "pickTwo",
+            "open",
+            "share",
+          ],
+        },
+        title: {
+          type: "text",
+          props: { content: market.question, weight: "bold" },
+        },
+        meta: {
+          type: "text",
+          props: {
+            content: `Status: ${status} · #${market.marketId}`,
+            size: "sm",
+          },
+        },
         pool: {
           type: "text",
           props: {
@@ -94,17 +145,40 @@ function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<t
         pickOne: {
           type: "button",
           props: { label: first.label, variant: "primary" },
-          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=${first.index}` } } },
+          on: {
+            press: {
+              action: "submit",
+              params: {
+                target: `${baseUrl}/snap?action=pick&option=${first.index}`,
+              },
+            },
+          },
         },
         pickTwo: {
           type: "button",
           props: { label: second.label },
-          on: { press: { action: "submit", params: { target: `${baseUrl}/snap?action=pick&option=${second.index}` } } },
+          on: {
+            press: {
+              action: "submit",
+              params: {
+                target: `${baseUrl}/snap?action=pick&option=${second.index}`,
+              },
+            },
+          },
         },
         open: {
           type: "button",
           props: { label: "Open mini app" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&channel=${encodeURIComponent(TWITCH_CHANNEL)}` } } },
+          on: {
+            press: {
+              action: "open_mini_app",
+              params: {
+                target: `${baseUrl}/?marketId=${
+                  market.marketId
+                }&channel=${encodeURIComponent(TWITCH_CHANNEL)}`,
+              },
+            },
+          },
         },
         share: {
           type: "button",
@@ -127,9 +201,11 @@ function renderGetSnap(baseUrl: string, market: NonNullable<Awaited<ReturnType<t
 function renderPostSnap(
   baseUrl: string,
   market: NonNullable<Awaited<ReturnType<typeof getLatestMarketSnapshot>>>,
-  selectedOptionIndex: number
+  selectedOptionIndex: number,
 ) {
-  const selected = market.options.find((option) => option.index === selectedOptionIndex);
+  const selected = market.options.find(
+    (option) => option.index === selectedOptionIndex,
+  );
   const selectedLabel = selected?.label ?? `Option ${selectedOptionIndex}`;
   const status = getMarketStatus(market);
 
@@ -139,19 +215,41 @@ function renderPostSnap(
     ui: {
       root: "page",
       elements: {
-        page: { type: "stack", props: {}, children: ["title", "body", "status", "open", "again", "share"] },
-        title: { type: "text", props: { content: "Vote selected", weight: "bold" } },
-        body: { type: "text", props: { content: `You picked: ${selectedLabel}`, size: "sm" } },
-        status: { type: "text", props: { content: `Market status: ${status}`, size: "sm" } },
+        page: {
+          type: "stack",
+          props: {},
+          children: ["title", "body", "status", "open", "again", "share"],
+        },
+        title: {
+          type: "text",
+          props: { content: "Vote selected", weight: "bold" },
+        },
+        body: {
+          type: "text",
+          props: { content: `You picked: ${selectedLabel}`, size: "sm" },
+        },
+        status: {
+          type: "text",
+          props: { content: `Market status: ${status}`, size: "sm" },
+        },
         open: {
           type: "button",
           props: { label: "Open mini app", variant: "primary" },
-          on: { press: { action: "open_mini_app", params: { target: `${baseUrl}/?marketId=${market.marketId}&option=${selectedOptionIndex}` } } },
+          on: {
+            press: {
+              action: "open_mini_app",
+              params: {
+                target: `${baseUrl}/?marketId=${market.marketId}&option=${selectedOptionIndex}`,
+              },
+            },
+          },
         },
         again: {
           type: "button",
           props: { label: "Back to options" },
-          on: { press: { action: "submit", params: { target: `${baseUrl}/snap` } } },
+          on: {
+            press: { action: "submit", params: { target: `${baseUrl}/snap` } },
+          },
         },
         share: {
           type: "button",
@@ -179,7 +277,9 @@ export async function GET(request: Request) {
   }
   try {
     const market = await getLatestMarketSnapshot();
-    return jsonSnap(market ? renderGetSnap(baseUrl, market) : renderNoMarketSnap(baseUrl));
+    return jsonSnap(
+      market ? renderGetSnap(baseUrl, market) : renderNoMarketSnap(baseUrl),
+    );
   } catch {
     return jsonSnap(renderNoMarketSnap(baseUrl));
   }
@@ -200,7 +300,10 @@ export async function POST(request: Request) {
     if (action === "pick") {
       const selectedOptionIndex = Number(option);
       if (Number.isInteger(selectedOptionIndex)) {
-        return jsonSnap(renderPostSnap(baseUrl, market, selectedOptionIndex), true);
+        return jsonSnap(
+          renderPostSnap(baseUrl, market, selectedOptionIndex),
+          true,
+        );
       }
       return jsonSnap(renderGetSnap(baseUrl, market), true);
     }
