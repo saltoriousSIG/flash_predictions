@@ -21,7 +21,7 @@ function jsonSnap(body: unknown, isPersonalized = false) {
     headers: {
       "Content-Type": SNAP_CONTENT_TYPE,
       Vary: "Accept, X-Snap-Payload",
-      "Cache-Control": isPersonalized ? "private, max-age=30" : "public, max-age=30",
+      "Cache-Control": isPersonalized ? "private, no-store" : "public, no-store",
       ...CORS_HEADERS,
     },
   });
@@ -35,6 +35,7 @@ function fallbackHtml() {
         "Content-Type": "text/html; charset=utf-8",
         Link: `</snap>; rel="alternate"; type="${SNAP_CONTENT_TYPE}"`,
         Vary: "Accept",
+        "Cache-Control": "no-store",
         ...CORS_HEADERS,
       },
     }
