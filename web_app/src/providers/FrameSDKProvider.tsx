@@ -3,7 +3,6 @@
 import {
   createContext,
   useContext,
-  useRef,
   useEffect,
   useState,
   type ReactNode,
@@ -38,9 +37,6 @@ export function FrameSDKProvider({ children }: { children: ReactNode }) {
   const { isConnected, address } = useAccount();
   const { connectAsync, connectors } = useConnect();
 
-  const connectRef = useRef({ connectAsync, connectors });
-  connectRef.current = { connectAsync, connectors };
-
   useEffect(() => {
     let cancelled = false;
 
@@ -60,10 +56,9 @@ export function FrameSDKProvider({ children }: { children: ReactNode }) {
 
         await sdk.actions.ready();
 
-        const { connectAsync: ca, connectors: conns } = connectRef.current;
-        if (conns.length > 0) {
+        if (connectors.length > 0) {
           try {
-            await ca({ connector: conns[0] });
+            await connectAsync({ connector: connectors[0] });
           } catch {
             // ignore connector errors, user can retry manually
           }
@@ -83,7 +78,7 @@ export function FrameSDKProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [pathname]);
+  }, [pathname, connectAsync, connectors]);
 
   return (
     <FrameSDKContext.Provider

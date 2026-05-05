@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   encodeFunctionData,
   erc20Abi,
@@ -57,8 +57,18 @@ export function JoinMarketCard({
   contractAddress,
   closeTime,
 }: JoinMarketCardProps) {
+  const initialSelectedOption = (() => {
+    if (typeof window === "undefined") return options[0]?.index ?? 0;
+    const params = new URLSearchParams(window.location.search);
+    const optionFromQuery = Number(params.get("option"));
+    if (Number.isInteger(optionFromQuery) && options.some((option) => option.index === optionFromQuery)) {
+      return optionFromQuery;
+    }
+    return options[0]?.index ?? 0;
+  })();
+
   const [selectedOption, setSelectedOption] = useState<number>(
-    options[0]?.index ?? 0
+    initialSelectedOption
   );
   const [amount, setAmount] = useState("10");
   const [isWorking, setIsWorking] = useState(false);
@@ -73,23 +83,7 @@ export function JoinMarketCard({
   const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "") || (typeof window !== "undefined" ? window.location.origin : "");
   const openInFarcasterUrl = `${appBaseUrl}/snap`;
 
-  const marketIsClosed = useMemo(() => Date.now() >= closeTime * 1000, [closeTime]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const optionFromQuery = Number(params.get("option"));
-    if (Number.isInteger(optionFromQuery) && options.some((option) => option.index === optionFromQuery)) {
-      setSelectedOption(optionFromQuery);
-    }
-  }, [options]);
-
-  useEffect(() => {
-    if (isConnected && address) {
-      setStatus("Farcaster wallet connected. Approve and submit your prediction.");
-    }
-  }, [isConnected, address]);
-
-  async function readAllowance(owner: string) {
+  const readAllowance = useCallback(async (owner: string) => {
     if (!publicClient) return BigInt(0);
 
     const allowance = await publicClient.readContract({
@@ -100,7 +94,7 @@ export function JoinMarketCard({
     });
 
     return allowance;
-  }
+  }, [publicClient, tokenAddress, contractAddress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +118,7 @@ export function JoinMarketCard({
     return () => {
       cancelled = true;
     };
-  }, [address, isConnected, amount, publicClient, tokenAddress, contractAddress]);
+  }, [address, isConnected, amount, readAllowance]);
 
   async function connectWallet() {
     if (!connectors.length) {
@@ -196,7 +190,7 @@ export function JoinMarketCard({
   }
 
   async function submitPrediction() {
-    if (marketIsClosed) {
+    if (Date.now() >= closeTime * 1000) {
       setStatus("Market is closed. New predictions are disabled.");
       return;
     }
@@ -310,9 +304,9 @@ export function JoinMarketCard({
               type="button"
               onClick={submitPrediction}
               className="rounded-full bg-fuchsia-400/90 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-fuchsia-300 disabled:opacity-60"
-              disabled={isWorking || !isConnected || !address || !walletClient || marketIsClosed || !hasValidAmount || !isApproved}
+              disabled={isWorking || !isConnected || !address || !walletClient || !hasValidAmount || !isApproved}
             >
-              {marketIsClosed ? "Market Closed" : isWorking ? "Submitting..." : `Submit Prediction (${tokenSymbol})`}
+              {isWorking ? "Submitting..." : `Submit Prediction (${tokenSymbol})`}
             </button>
           </>
         )}
