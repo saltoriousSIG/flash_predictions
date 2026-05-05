@@ -11,6 +11,7 @@ import {
 import { useAccount, useConnect, usePublicClient, useWalletClient } from "wagmi";
 import { useFrameSDK } from "../../providers/FrameSDKProvider";
 
+
 type Option = {
   index: number;
   label: string;
@@ -245,11 +246,10 @@ export function JoinMarketCard({
             key={option.index}
             type="button"
             onClick={() => setSelectedOption(option.index)}
-            className={`rounded-xl border px-4 py-3 text-left transition ${
-              selectedOption === option.index
+            className={`rounded-xl border px-4 py-3 text-left transition ${selectedOption === option.index
                 ? "border-fuchsia-400 bg-fuchsia-400/15 text-fuchsia-100"
                 : "border-cyan-400/20 bg-slate-900/80 text-cyan-50 hover:bg-slate-900"
-            }`}
+              }`}
           >
             <span className="block font-semibold">{option.label}</span>
             <span className="block text-xs uppercase tracking-wide text-cyan-300/80">Pool: {option.poolDisplay} {tokenSymbol} · {option.bettorCount} bettors</span>
